@@ -4,10 +4,10 @@ import { Zap } from 'lucide-react';
 
 export const ActionNode = memo(({ data, selected }: NodeProps) => {
   const nodeData = data as any;
-  
+
   return (
     <div className={`
-      border-2 bg-card shadow-lg rounded-lg overflow-hidden
+      border-2 shadow-lg rounded-lg overflow-hidden node-action
       ${selected ? 'border-primary ring-2 ring-primary/20' : 'border-effect'}
     `} style={{ minWidth: '180px' }}>
       {/* Header */}
@@ -25,9 +25,9 @@ export const ActionNode = memo(({ data, selected }: NodeProps) => {
 
       {/* Preconditions */}
       <div className="px-4 py-2 bg-precondition/5 border-b border-precondition/20 relative">
-        <Handle 
-          type="target" 
-          position={Position.Left} 
+        <Handle
+          type="target"
+          position={Position.Left}
           id="precondition"
           className="w-3 h-3 bg-precondition"
           style={{ top: '50%' }}
@@ -42,9 +42,9 @@ export const ActionNode = memo(({ data, selected }: NodeProps) => {
 
       {/* Effects */}
       <div className="px-4 py-2 bg-effect/5 relative">
-        <Handle 
-          type="source" 
-          position={Position.Right} 
+        <Handle
+          type="source"
+          position={Position.Right}
           id="effect"
           className="w-3 h-3 bg-effect"
           style={{ top: '50%' }}

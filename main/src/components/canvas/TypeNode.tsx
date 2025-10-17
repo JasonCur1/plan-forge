@@ -4,10 +4,10 @@ import { Box } from 'lucide-react';
 
 export const TypeNode = memo(({ data, selected }: NodeProps) => {
   const nodeData = data as any;
-  
+
   return (
     <div className={`
-      px-4 py-3 rounded-lg border-2 bg-card shadow-lg
+      px-4 py-3 rounded-lg border-2 shadow-lg node-type
       ${selected ? 'border-primary ring-2 ring-primary/20' : 'border-border/50'}
     `}>
       <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-muted-foreground" />

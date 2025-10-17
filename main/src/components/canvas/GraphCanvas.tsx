@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import {
   ReactFlow,
   Background,
@@ -27,7 +27,42 @@ const nodeTypes: NodeTypes = {
   object: ObjectNode,
 };
 
-const initialNodes: Node[] = [];
+const initialNodes: Node[] = [
+  // Adding initial nodes for demonstration purposes based on PDDL problem objects:
+  {
+    id: 'object-a',
+    type: 'object',
+    position: { x: 50, y: 300 },
+    data: { label: 'a', type: 'block' },
+    style: { width: 80, height: 80 },
+  },
+  {
+    id: 'object-b',
+    type: 'object',
+    position: { x: 150, y: 300 },
+    data: { label: 'b', type: 'block' },
+    style: { width: 80, height: 80 },
+  },
+  {
+    id: 'object-c',
+    type: 'object',
+    position: { x: 250, y: 300 },
+    data: { label: 'c', type: 'block' },
+    style: { width: 80, height: 80 },
+  },
+  {
+    id: 'predicate-on-top',
+    type: 'predicate',
+    position: { x: 150, y: 100 },
+    data: {
+      label: 'on-top',
+      parameters: [
+        { name: '?x', type: 'block', value: 'a' },
+        { name: '?y', type: 'block', value: 'b' },
+      ],
+    },
+  },
+];
 const initialEdges: Edge[] = [];
 
 interface GraphCanvasProps {

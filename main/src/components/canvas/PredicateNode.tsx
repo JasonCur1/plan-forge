@@ -4,10 +4,10 @@ import { GitBranch } from 'lucide-react';
 
 export const PredicateNode = memo(({ data, selected }: NodeProps) => {
   const nodeData = data as any;
-  
+
   return (
     <div className={`
-      px-4 py-3 border-2 bg-card shadow-lg node-predicate
+      px-4 py-3 border-2 shadow-lg node-predicate
       ${selected ? 'border-primary ring-2 ring-primary/20' : 'border-precondition'}
       clip-hexagon
     `} style={{
