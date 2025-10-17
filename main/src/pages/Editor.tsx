@@ -150,6 +150,7 @@ export default function Editor() {
           <div className="flex-1 relative">
             <GraphCanvas
               onNodeSelect={setSelectedNode}
+              selectedNode={selectedNode}
               availableObjects={availableObjects}
               onNodesUpdate={handleNodesUpdateFromCanvas}
             />

@@ -4,8 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // Added useCallback
 import { Parameter } from '@/types/graph';
 
 interface AvailableObject {
@@ -23,6 +24,7 @@ interface PropertiesPanelProps {
 export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }: PropertiesPanelProps) => {
   const [nodeData, setNodeData] = useState<any>(null);
 
+  // This ensures the local state always reflects the selected node's data
   useEffect(() => {
     if (selectedNode) {
       setNodeData({ ...selectedNode.data });
@@ -31,6 +33,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
 
   if (!selectedNode || !nodeData) {
     return (
+// ... existing return for no node selected (omitted for brevity)
       <Card className="glass-panel p-4">
         <p className="text-sm text-muted-foreground text-center py-8">
           Select a node to edit its properties
@@ -39,33 +42,41 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
     );
   }
 
-  const handleUpdate = () => {
-    if (JSON.stringify(selectedNode.data) !== JSON.stringify(nodeData)) {
+  // --- Core Update Logic ---
+  // Use useCallback for persistence helper. This function commits local state to the parent.
+  const handleUpdate = useCallback(() => {
+    if (selectedNode) {
       onUpdateNode(selectedNode.id, nodeData);
     }
-  };
+  }, [selectedNode, nodeData, onUpdateNode]);
+
+  // Helper to commit changes immediately (e.g., after an item removal)
+  const handleImmediateUpdate = useCallback((newPartialData: any) => {
+    const newData = { ...nodeData, ...newPartialData };
+    setNodeData(newData);
+    onUpdateNode(selectedNode.id, newData);
+  }, [selectedNode, nodeData, onUpdateNode]);
+  // -------------------------
 
   const isPredicateOrAction = selectedNode.type === 'predicate' || selectedNode.type === 'action';
   const isPredicate = selectedNode.type === 'predicate';
 
   const addParameter = () => {
-    setNodeData({
-      ...nodeData,
-      // Default type to 'object' (or whatever the user defines) and value to the first object found
-      parameters: [...(nodeData.parameters || []), {
-        name: `?param${(nodeData.parameters?.length || 0) + 1}`,
+    setNodeData((prevData: any) => ({
+      ...prevData,
+      parameters: [...(prevData.parameters || []), {
+        name: `?param${(prevData.parameters?.length || 0) + 1}`,
         type: 'object',
         value: availableObjects[0]?.label || ''
       }]
-    });
+    }));
   };
-
 
   const removeParameter = (index: number) => {
     const newParams = [...nodeData.parameters];
     newParams.splice(index, 1);
-    setNodeData({ ...nodeData, parameters: newParams });
-    onUpdateNode(selectedNode.id, { ...nodeData, parameters: newParams });
+    // Use handleImmediateUpdate to commit the removal right away
+    handleImmediateUpdate({ parameters: newParams });
   };
 
   const updateParameter = (index: number, field: keyof Parameter, value: string) => {
@@ -74,21 +85,22 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
     setNodeData({ ...nodeData, parameters: newParams });
   };
 
+  // Handlers for predicate-specific arguments (preconditions/effects)
   const addPredicateArgument = (field: 'preconditions' | 'effects') => {
-      setNodeData({
-          ...nodeData,
-          [field]: [...(nodeData[field] || []), {
+      setNodeData((prevData: any) => ({
+          ...prevData,
+          [field]: [...(prevData[field] || []), {
               object1: availableObjects[0]?.label || '',
               object2: ''
           }]
-      });
+      }));
   };
 
   const removePredicateArgument = (field: 'preconditions' | 'effects', index: number) => {
       const newArgs = [...nodeData[field]];
       newArgs.splice(index, 1);
-      setNodeData({ ...nodeData, [field]: newArgs });
-      onUpdateNode(selectedNode.id, { ...nodeData, [field]: newArgs });
+      // Use handleImmediateUpdate to commit the removal right away
+      handleImmediateUpdate({ [field]: newArgs });
   };
 
   const updatePredicateArgument = (field: 'preconditions' | 'effects', index: number, key: 'object1' | 'object2', value: string) => {
@@ -99,7 +111,15 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
 
   // Helper to render the object selection dropdown
   const renderObjectSelect = (currentValue: string, onChange: (value: string) => void) => (
-    <Select value={currentValue} onValueChange={onChange}>
+    <Select
+      value={currentValue}
+      onValueChange={(value) => {
+        onChange(value);
+        // Commit the change immediately after selecting a value
+        onUpdateNode(selectedNode.id, { ...nodeData, /* Update happens via caller, just commit here */ });
+        handleUpdate();
+      }}
+    >
       <SelectTrigger className="w-full">
         <SelectValue placeholder="Select Object" />
       </SelectTrigger>
@@ -133,6 +153,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
           id="label"
           value={nodeData.label}
           onChange={(e) => setNodeData({ ...nodeData, label: e.target.value })}
+          // COMMIT: Update on blur
           onBlur={handleUpdate}
         />
       </div>
@@ -144,6 +165,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
             id="description"
             value={nodeData.description || ''}
             onChange={(e) => setNodeData({ ...nodeData, description: e.target.value })}
+            // COMMIT: Update on blur
             onBlur={handleUpdate}
             rows={3}
           />
@@ -155,7 +177,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>Parameters</Label>
-            <Button size="sm" variant="outline" onClick={addParameter}>
+            <Button size="sm" variant="outline" onClick={() => { addParameter(); handleUpdate(); }}> {/* Commit on add */}
               <Plus className="w-3 h-3" />
             </Button>
           </div>
@@ -166,14 +188,15 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
                   placeholder="?Name"
                   value={param.name}
                   onChange={(e) => updateParameter(index, 'name', e.target.value)}
+                  // COMMIT: Update on blur
                   onBlur={handleUpdate}
                   className="flex-1"
                 />
-                {/* For now, just a text input for type. In PDDL, this maps to object types. */}
                 <Input
                   placeholder="Type"
                   value={param.type}
                   onChange={(e) => updateParameter(index, 'type', e.target.value)}
+                  // COMMIT: Update on blur
                   onBlur={handleUpdate}
                   className="flex-1"
                 />
@@ -195,7 +218,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
         <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <Label>Object Assignment</Label>
-                <Button size="sm" variant="outline" onClick={() => addPredicateArgument('preconditions')}>
+                <Button size="sm" variant="outline" onClick={() => { addPredicateArgument('preconditions'); handleUpdate(); }}> {/* Commit on add */}
                     <Plus className="w-3 h-3" />
                 </Button>
             </div>
@@ -207,6 +230,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
                         <div className="flex-1">
                             {renderObjectSelect(
                                 arg.object1,
+                                // Call update and then immediately commit
                                 (value) => updatePredicateArgument('preconditions', index, 'object1', value)
                             )}
                         </div>
@@ -216,6 +240,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
                             <div className="flex-1">
                                 {renderObjectSelect(
                                     arg.object2,
+                                    // Call update and then immediately commit
                                     (value) => updatePredicateArgument('preconditions', index, 'object2', value)
                                 )}
                             </div>
@@ -248,6 +273,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
             id="type"
             value={nodeData.type}
             onChange={(e) => setNodeData({ ...nodeData, type: e.target.value })}
+            // COMMIT: Update on blur
             onBlur={handleUpdate}
           />
         </div>

@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo, useEffect } from 'react';
 import {
   ReactFlow,
   Background,
@@ -19,7 +19,6 @@ import { PredicateNode } from './PredicateNode';
 import { ActionNode } from './ActionNode';
 import { ObjectNode } from './ObjectNode';
 import { toast } from 'sonner';
-import { PropertiesPanel } from './PropertiesPanel';
 
 const nodeTypes: NodeTypes = {
   type: TypeNode,
@@ -68,16 +67,17 @@ const initialEdges: Edge[] = [];
 
 interface GraphCanvasProps {
   onNodeSelect: (node: Node | null) => void;
-  availableObjects: { id: string; label: string; type: string }[]; // Exposes objects to parent (editor)
-  onNodesUpdate: (nodes: Node[]) => void; // Allows parent to update nodes
+  selectedNode: Node | null;
+  availableObjects: { id: string; label: string; type: string }[];
+  onNodesUpdate: (nodes: Node[]) => void;
 }
 
-export const GraphCanvas = ({ onNodeSelect }: GraphCanvasProps) => {
+export const GraphCanvas = ({ onNodeSelect, onNodesUpdate, availableObjects, selectedNode }: GraphCanvasProps) => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
-  const availableObjects = useMemo(() => {
+  const allAvailableObjects = useMemo(() => {
     return nodes
       .filter((n) => n.type === 'object')
       .map((n) => ({
@@ -87,23 +87,7 @@ export const GraphCanvas = ({ onNodeSelect }: GraphCanvasProps) => {
       }));
   }, [nodes]);
 
-  const handleNodeDataUpdate = useCallback(
-    (nodeId: string, updatedData: any) => {
-      setNodes((nds) =>
-        nds.map((node) =>
-          node.id === nodeId
-            ? {
-                ...node,
-                data: updatedData,
-              }
-            : node,
-        ),
-      );
-    },
-    [setNodes],
-  );
-
-  React.useEffect(() => {
+  useEffect(() => {
     onNodesUpdate(nodes);
   }, [nodes, onNodesUpdate]);
 
@@ -170,7 +154,7 @@ export const GraphCanvas = ({ onNodeSelect }: GraphCanvasProps) => {
         position,
         data: {
           label: `New ${type}`,
-          parameters: type === 'predicate' || type === 'action' ? [{ name: '?x', type: 'object', value: availableObjects[0]?.label || '' }] : [],
+          parameters: type === 'predicate' || type === 'action' ? [{ name: '?x', type: 'object', value: allAvailableObjects[0]?.label || '' }] : [],
           preconditions: [],
           effects: [],
         },
@@ -217,11 +201,6 @@ export const GraphCanvas = ({ onNodeSelect }: GraphCanvasProps) => {
           className="bg-card border border-border"
         />
       </ReactFlow>
-      <PropertiesPanel
-        selectedNode={nodes.find((n) => n.id === selectedNode?.id) || null}
-        onUpdateNode={handleNodeDataUpdate}
-        availableObjects={availableObjects}
-      />
     </div>
   );
 };
