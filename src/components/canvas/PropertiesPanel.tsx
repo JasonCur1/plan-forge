@@ -24,16 +24,30 @@ interface PropertiesPanelProps {
 export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }: PropertiesPanelProps) => {
   const [nodeData, setNodeData] = useState<any>(null);
 
-  // This ensures the local state always reflects the selected node's data
   useEffect(() => {
     if (selectedNode) {
       setNodeData({ ...selectedNode.data });
+    } else {
+        setNodeData(null); 
     }
   }, [selectedNode]);
 
+  const handleUpdate = useCallback(() => {
+    if (selectedNode && nodeData) {
+      onUpdateNode(selectedNode.id, nodeData);
+    }
+  }, [selectedNode, nodeData, onUpdateNode]);
+
+  // Helper to commit changes immediately (e.g., after an item removal)
+  const handleImmediateUpdate = useCallback((newPartialData: any) => {
+    if (!selectedNode || !nodeData) return; // Guard clause
+    const newData = { ...nodeData, ...newPartialData };
+    setNodeData(newData);
+    onUpdateNode(selectedNode.id, newData);
+  }, [selectedNode, nodeData, onUpdateNode]);
+  
   if (!selectedNode || !nodeData) {
     return (
-// ... existing return for no node selected (omitted for brevity)
       <Card className="glass-panel p-4">
         <p className="text-sm text-muted-foreground text-center py-8">
           Select a node to edit its properties
@@ -42,34 +56,16 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
     );
   }
 
-  // --- Core Update Logic ---
-  // Use useCallback for persistence helper. This function commits local state to the parent.
-  const handleUpdate = useCallback(() => {
-    if (selectedNode) {
-      onUpdateNode(selectedNode.id, nodeData);
-    }
-  }, [selectedNode, nodeData, onUpdateNode]);
-
-  // Helper to commit changes immediately (e.g., after an item removal)
-  const handleImmediateUpdate = useCallback((newPartialData: any) => {
-    const newData = { ...nodeData, ...newPartialData };
-    setNodeData(newData);
-    onUpdateNode(selectedNode.id, newData);
-  }, [selectedNode, nodeData, onUpdateNode]);
-  // -------------------------
-
   const isPredicateOrAction = selectedNode.type === 'predicate' || selectedNode.type === 'action';
   const isPredicate = selectedNode.type === 'predicate';
 
   const addParameter = () => {
-    setNodeData((prevData: any) => ({
-      ...prevData,
-      parameters: [...(prevData.parameters || []), {
-        name: `?param${(prevData.parameters?.length || 0) + 1}`,
-        type: 'object',
-        value: availableObjects[0]?.label || ''
-      }]
-    }));
+    const newParams = [...(nodeData.parameters || []), {
+      name: `?param${(nodeData.parameters?.length || 0) + 1}`,
+      type: 'object',
+      value: availableObjects[0]?.label || ''
+    }];
+    handleImmediateUpdate({ parameters: newParams });
   };
 
   const removeParameter = (index: number) => {
@@ -85,15 +81,12 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
     setNodeData({ ...nodeData, parameters: newParams });
   };
 
-  // Handlers for predicate-specific arguments (preconditions/effects)
   const addPredicateArgument = (field: 'preconditions' | 'effects') => {
-      setNodeData((prevData: any) => ({
-          ...prevData,
-          [field]: [...(prevData[field] || []), {
-              object1: availableObjects[0]?.label || '',
-              object2: ''
-          }]
-      }));
+      const newArgs = [...(nodeData[field] || []), {
+          object1: availableObjects[0]?.label || '',
+          object2: ''
+      }];
+      handleImmediateUpdate({ [field]: newArgs });
   };
 
   const removePredicateArgument = (field: 'preconditions' | 'effects', index: number) => {
@@ -105,20 +98,17 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
 
   const updatePredicateArgument = (field: 'preconditions' | 'effects', index: number, key: 'object1' | 'object2', value: string) => {
       const newArgs = [...nodeData[field]];
-      newArgs[index][key] = value;
-      setNodeData({ ...nodeData, [field]: newArgs });
+      newArgs[index] = { ...newArgs[index], [key]: value };
+      const newData = { ...nodeData, [field]: newArgs };
+      setNodeData(newData);
+      onUpdateNode(selectedNode.id, newData);
   };
 
   // Helper to render the object selection dropdown
   const renderObjectSelect = (currentValue: string, onChange: (value: string) => void) => (
     <Select
       value={currentValue}
-      onValueChange={(value) => {
-        onChange(value);
-        // Commit the change immediately after selecting a value
-        onUpdateNode(selectedNode.id, { ...nodeData, /* Update happens via caller, just commit here */ });
-        handleUpdate();
-      }}
+      onValueChange={onChange}
     >
       <SelectTrigger className="w-full">
         <SelectValue placeholder="Select Object" />
@@ -129,7 +119,6 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
             {obj.label} ({obj.type})
           </SelectItem>
         ))}
-        {/* Fallback option if no objects exist yet */}
         {availableObjects.length === 0 && (
           <SelectItem value="" disabled>
             No objects available
@@ -177,7 +166,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>Parameters</Label>
-            <Button size="sm" variant="outline" onClick={() => { addParameter(); handleUpdate(); }}> {/* Commit on add */}
+            <Button size="sm" variant="outline" onClick={addParameter}>
               <Plus className="w-3 h-3" />
             </Button>
           </div>
@@ -218,7 +207,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }
         <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <Label>Object Assignment</Label>
-                <Button size="sm" variant="outline" onClick={() => { addPredicateArgument('preconditions'); handleUpdate(); }}> {/* Commit on add */}
+                <Button size="sm" variant="outline" onClick={() => addPredicateArgument('preconditions')}>
                     <Plus className="w-3 h-3" />
                 </Button>
             </div>

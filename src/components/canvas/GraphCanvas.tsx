@@ -60,6 +60,7 @@ const initialNodes: Node[] = [
         { name: '?x', type: 'block', value: 'a' },
         { name: '?y', type: 'block', value: 'b' },
       ],
+      preconditions: [],
     },
   },
 ];
@@ -154,9 +155,18 @@ export const GraphCanvas = ({ onNodeSelect, onNodesUpdate, availableObjects, sel
         position,
         data: {
           label: `New ${type}`,
-          parameters: type === 'predicate' || type === 'action' ? [{ name: '?x', type: 'object', value: allAvailableObjects[0]?.label || '' }] : [],
-          preconditions: [],
-          effects: [],
+          ...(type === 'predicate' && {
+            parameters: [{ name: '?x', type: 'object', value: allAvailableObjects[0]?.label || '' }],
+            preconditions: [],
+          }),
+          ...(type === 'action' && {
+            parameters: [{ name: '?x', type: 'object', value: allAvailableObjects[0]?.label || '' }],
+            preconditions: [],
+            effects: [],
+          }),
+          ...(type === 'object' && {
+            type: 'object',
+          }),
         },
       };
 
@@ -165,7 +175,7 @@ export const GraphCanvas = ({ onNodeSelect, onNodesUpdate, availableObjects, sel
         description: `${type} node added to canvas`
       });
     },
-    [reactFlowInstance, setNodes, availableObjects]
+    [reactFlowInstance, setNodes, allAvailableObjects]
   );
 
   return (
