@@ -1,5 +1,11 @@
 export type NodeType = 'type' | 'predicate' | 'action' | 'object';
 
+export interface Parameter {
+  name: string;
+  type: string;
+  value?: string;
+}
+
 export interface TypeNodeData {
   label: string;
   description?: string;
@@ -7,15 +13,16 @@ export interface TypeNodeData {
 
 export interface PredicateNodeData {
   label: string;
-  parameters: Array<{ name: string; type: string }>;
+  parameters: Parameter[];
+  preconditions: Array<{ object1: string; object2: string }>;
   description?: string;
 }
 
 export interface ActionNodeData {
   label: string;
-  parameters: Array<{ name: string; type: string }>;
-  preconditions: string[];
-  effects: string[];
+  parameters: Parameter[];
+  preconditions: Array<{ object1: string; object2: string }>;
+  effects: Array<{ object1: string; object2: string }>;
   description?: string;
 }
 

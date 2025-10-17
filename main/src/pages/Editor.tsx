@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Node } from "@xyflow/react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import { GraphCanvas } from "@/components/canvas/GraphCanvas";
 import { PropertiesPanel } from "@/components/canvas/PropertiesPanel";
-import { 
-  Box, 
-  GitBranch, 
-  Zap, 
+import {
+  Box,
+  GitBranch,
+  Zap,
   Plus,
   Play,
   Download,
@@ -19,6 +19,17 @@ import {
 
 export default function Editor() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [allNodes, setAllNodes] = useState<Node[]>([]);
+
+  const availableObjects = useMemo(() => {
+    return allNodes
+      .filter((n) => n.type === 'object')
+      .map((n) => ({
+        id: n.id,
+        label: n.data.label,
+        type: n.data.type,
+      }));
+  }, [allNodes]);
 
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
@@ -27,14 +38,26 @@ export default function Editor() {
 
   const handleNodeUpdate = useCallback((nodeId: string, updatedData: any) => {
     // Update nodes state in the parent
-    // This is a placeholder - the actual implementation would update React Flow's nodes state
-    console.log('Update node:', nodeId, updatedData);
+    setAllNodes((nds) =>
+      nds.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              data: updatedData,
+            }
+          : node,
+      ),
+    );
+  }, []);
+
+  const handleNodesUpdateFromCanvas = useCallback((nodes: Node[]) => {
+    setAllNodes(nodes);
   }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      
+
       <div className="flex-1 flex pt-16">
         {/* Left Panel - Element Palette */}
         <aside className="w-64 border-r border-border/50 glass-panel flex flex-col">
@@ -43,13 +66,13 @@ export default function Editor() {
               Elements
             </h2>
           </div>
-          
+
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-4">
               <div className="space-y-2">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase">Domain</h3>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start cursor-move"
                   draggable
                   onDragStart={(e) => onDragStart(e, 'type')}
@@ -57,8 +80,8 @@ export default function Editor() {
                   <Box className="mr-2 h-4 w-4" />
                   Type
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start node-predicate cursor-move"
                   draggable
                   onDragStart={(e) => onDragStart(e, 'predicate')}
@@ -66,8 +89,8 @@ export default function Editor() {
                   <GitBranch className="mr-2 h-4 w-4" />
                   Predicate
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start node-effect cursor-move"
                   draggable
                   onDragStart={(e) => onDragStart(e, 'action')}
@@ -79,8 +102,8 @@ export default function Editor() {
 
               <div className="space-y-2">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase">Problem</h3>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start node-parameter cursor-move"
                   draggable
                   onDragStart={(e) => onDragStart(e, 'object')}
@@ -89,7 +112,7 @@ export default function Editor() {
                   Object
                 </Button>
               </div>
-              
+
               <div className="pt-4 border-t border-border/50">
                 <p className="text-xs text-muted-foreground">
                   Drag elements onto the canvas to create nodes
@@ -125,7 +148,11 @@ export default function Editor() {
           </div>
 
           <div className="flex-1 relative">
-            <GraphCanvas onNodeSelect={setSelectedNode} />
+            <GraphCanvas
+              onNodeSelect={setSelectedNode}
+              availableObjects={availableObjects}
+              onNodesUpdate={handleNodesUpdateFromCanvas}
+            />
           </div>
         </main>
 
@@ -136,11 +163,12 @@ export default function Editor() {
               Properties
             </h2>
           </div>
-          
+
           <ScrollArea className="flex-1 p-4">
-            <PropertiesPanel 
-              selectedNode={selectedNode} 
+            <PropertiesPanel
+              selectedNode={allNodes.find((n) => n.id === selectedNode?.id) || null}
               onUpdateNode={handleNodeUpdate}
+              availableObjects={availableObjects}
             />
           </ScrollArea>
         </aside>
@@ -156,7 +184,7 @@ export default function Editor() {
               <TabsTrigger value="plan">Plan Results</TabsTrigger>
             </TabsList>
           </div>
-          
+
           <TabsContent value="pddl" className="m-0">
             <ScrollArea className="h-48">
               <pre className="p-4 text-sm font-mono text-muted-foreground">
@@ -174,7 +202,7 @@ export default function Editor() {
               </pre>
             </ScrollArea>
           </TabsContent>
-          
+
           <TabsContent value="logs" className="m-0">
             <ScrollArea className="h-48">
               <div className="p-4 space-y-2 text-sm font-mono">
@@ -182,7 +210,7 @@ export default function Editor() {
               </div>
             </ScrollArea>
           </TabsContent>
-          
+
           <TabsContent value="plan" className="m-0">
             <ScrollArea className="h-48">
               <div className="p-4 text-sm text-muted-foreground">

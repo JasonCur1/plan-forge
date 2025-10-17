@@ -6,13 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { Parameter } from '@/types/graph';
+
+interface AvailableObject {
+  id: string;
+  label: string;
+  type: string;
+}
 
 interface PropertiesPanelProps {
   selectedNode: Node | null;
   onUpdateNode: (nodeId: string, data: any) => void;
+  availableObjects: AvailableObject[];
 }
 
-export const PropertiesPanel = ({ selectedNode, onUpdateNode }: PropertiesPanelProps) => {
+export const PropertiesPanel = ({ selectedNode, onUpdateNode, availableObjects }: PropertiesPanelProps) => {
   const [nodeData, setNodeData] = useState<any>(null);
 
   useEffect(() => {
@@ -32,27 +40,84 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode }: PropertiesPanelP
   }
 
   const handleUpdate = () => {
-    onUpdateNode(selectedNode.id, nodeData);
+    if (JSON.stringify(selectedNode.data) !== JSON.stringify(nodeData)) {
+      onUpdateNode(selectedNode.id, nodeData);
+    }
   };
+
+  const isPredicateOrAction = selectedNode.type === 'predicate' || selectedNode.type === 'action';
+  const isPredicate = selectedNode.type === 'predicate';
 
   const addParameter = () => {
     setNodeData({
       ...nodeData,
-      parameters: [...(nodeData.parameters || []), { name: '?new', type: 'object' }]
+      // Default type to 'object' (or whatever the user defines) and value to the first object found
+      parameters: [...(nodeData.parameters || []), {
+        name: `?param${(nodeData.parameters?.length || 0) + 1}`,
+        type: 'object',
+        value: availableObjects[0]?.label || ''
+      }]
     });
   };
+
 
   const removeParameter = (index: number) => {
     const newParams = [...nodeData.parameters];
     newParams.splice(index, 1);
     setNodeData({ ...nodeData, parameters: newParams });
+    onUpdateNode(selectedNode.id, { ...nodeData, parameters: newParams });
   };
 
-  const updateParameter = (index: number, field: string, value: string) => {
+  const updateParameter = (index: number, field: keyof Parameter, value: string) => {
     const newParams = [...nodeData.parameters];
     newParams[index] = { ...newParams[index], [field]: value };
     setNodeData({ ...nodeData, parameters: newParams });
   };
+
+  const addPredicateArgument = (field: 'preconditions' | 'effects') => {
+      setNodeData({
+          ...nodeData,
+          [field]: [...(nodeData[field] || []), {
+              object1: availableObjects[0]?.label || '',
+              object2: ''
+          }]
+      });
+  };
+
+  const removePredicateArgument = (field: 'preconditions' | 'effects', index: number) => {
+      const newArgs = [...nodeData[field]];
+      newArgs.splice(index, 1);
+      setNodeData({ ...nodeData, [field]: newArgs });
+      onUpdateNode(selectedNode.id, { ...nodeData, [field]: newArgs });
+  };
+
+  const updatePredicateArgument = (field: 'preconditions' | 'effects', index: number, key: 'object1' | 'object2', value: string) => {
+      const newArgs = [...nodeData[field]];
+      newArgs[index][key] = value;
+      setNodeData({ ...nodeData, [field]: newArgs });
+  };
+
+  // Helper to render the object selection dropdown
+  const renderObjectSelect = (currentValue: string, onChange: (value: string) => void) => (
+    <Select value={currentValue} onValueChange={onChange}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="Select Object" />
+      </SelectTrigger>
+      <SelectContent>
+        {availableObjects.map((obj) => (
+          <SelectItem key={obj.id} value={obj.label}>
+            {obj.label} ({obj.type})
+          </SelectItem>
+        ))}
+        {/* Fallback option if no objects exist yet */}
+        {availableObjects.length === 0 && (
+          <SelectItem value="" disabled>
+            No objects available
+          </SelectItem>
+        )}
+      </SelectContent>
+    </Select>
+  );
 
   return (
     <Card className="glass-panel p-4 space-y-4">
@@ -85,7 +150,8 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode }: PropertiesPanelP
         </div>
       )}
 
-      {nodeData.parameters && (
+      {/* PARAMETERS SECTION (for Predicate and Action Nodes) */}
+      {nodeData.parameters && isPredicateOrAction && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>Parameters</Label>
@@ -94,15 +160,16 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode }: PropertiesPanelP
             </Button>
           </div>
           <div className="space-y-2">
-            {nodeData.parameters.map((param: any, index: number) => (
-              <div key={index} className="flex gap-2">
+            {nodeData.parameters.map((param: Parameter, index: number) => (
+              <div key={index} className="flex items-center gap-2">
                 <Input
-                  placeholder="Name"
+                  placeholder="?Name"
                   value={param.name}
                   onChange={(e) => updateParameter(index, 'name', e.target.value)}
                   onBlur={handleUpdate}
                   className="flex-1"
                 />
+                {/* For now, just a text input for type. In PDDL, this maps to object types. */}
                 <Input
                   placeholder="Type"
                   value={param.type}
@@ -113,10 +180,7 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode }: PropertiesPanelP
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => {
-                    removeParameter(index);
-                    handleUpdate();
-                  }}
+                  onClick={() => removeParameter(index)}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -126,6 +190,57 @@ export const PropertiesPanel = ({ selectedNode, onUpdateNode }: PropertiesPanelP
         </div>
       )}
 
+      {/* PREDICATE ARGUMENT ASSIGNMENT (for Predicate Nodes) */}
+      {isPredicate && (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <Label>Object Assignment</Label>
+                <Button size="sm" variant="outline" onClick={() => addPredicateArgument('preconditions')}>
+                    <Plus className="w-3 h-3" />
+                </Button>
+            </div>
+            <div className="space-y-2">
+                {/* Note: Using 'preconditions' as a generic list for predicate object assignment for now */}
+                {nodeData.preconditions?.map((arg: { object1: string, object2: string }, index: number) => (
+                    <div key={index} className="flex gap-2 p-2 border border-border rounded-md items-center">
+                        {/* First Parameter Dropdown */}
+                        <div className="flex-1">
+                            {renderObjectSelect(
+                                arg.object1,
+                                (value) => updatePredicateArgument('preconditions', index, 'object1', value)
+                            )}
+                        </div>
+
+                        {/* Second Parameter Dropdown (only if needed, for predicates like on-top ?x ?y) */}
+                        {selectedNode.data.parameters?.length > 1 && (
+                            <div className="flex-1">
+                                {renderObjectSelect(
+                                    arg.object2,
+                                    (value) => updatePredicateArgument('preconditions', index, 'object2', value)
+                                )}
+                            </div>
+                        )}
+
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => removePredicateArgument('preconditions', index)}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
+                    </div>
+                ))}
+            </div>
+            {/* Display message if no objects are available to select */}
+            {availableObjects.length === 0 && (
+                <p className="text-xs text-destructive">
+                    Create an 'Object' node to enable parameter selection.
+                </p>
+            )}
+        </div>
+      )}
+
+      {/* OBJECT TYPE SECTION (for Object Nodes) */}
       {selectedNode.type === 'object' && nodeData.type !== undefined && (
         <div className="space-y-2">
           <Label htmlFor="type">Type</Label>
